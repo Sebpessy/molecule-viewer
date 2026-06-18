@@ -76,6 +76,9 @@ export function showSpecimen(spec){
   v.zoomTo();
   v.render();
   v.spin(spinOn ? "y" : false, 0.6);
+  // Mobile first-load: the WebGL canvas can come up sized 0 before layout
+  // settles, leaving a blank stage until a refresh. Nudge a resize+recenter.
+  setTimeout(() => { try{ v.resize(); v.zoomTo(); v.render(); }catch(e){} }, 120);
 
   const badge = spec.live
     ? '<span class="badge live">Live · PubChem</span>'

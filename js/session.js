@@ -4,7 +4,7 @@
 // or switches lists — preserve it exactly.
 
 import { loadByName } from "./search.js";
-import { speak, startMusic, stopMusic, stopAnnounce } from "./voice.js";
+import { speak, startMusic, stopMusic, stopAnnounce, unlockAudio } from "./voice.js";
 import { sleep } from "./util.js";
 import { TRACKS } from "./config.js";
 
@@ -32,6 +32,9 @@ export function isPlaying(listId){
 
 // list = { id, molecules:[{name,...}|string], settings:{secondsEach,voice,music,track,loop} }
 export function playList(list, hooks){
+  // Runs synchronously inside the Play tap — unlock audio here so iOS lets the
+  // timed voice announcements play later.
+  unlockAudio();
   if(plState.playing) stopSession();
   if(!list || !Array.isArray(list.molecules) || !list.molecules.length) return;
 

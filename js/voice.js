@@ -55,10 +55,33 @@ function logUnvoiced(name){
   }
 }
 
+// One reused <audio> element. iOS only lets audio play after a user gesture, and
+// only for elements "unlocked" during that gesture — so we keep a single element,
+// unlock it on the Play tap (unlockAudio), then reuse it for every announcement.
 let announceAudio = null, webSpeakTimer = null;
+const SILENT_MP3 = "data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQxAADB8AhSmxhIIEVCSiJrDCQBTcu3UrAIwUdkRgQbFAZC1CQEwTJ9mjRvBA4UOLD8nKVOWfh+UlK3z/177OXrfOdKl7pyn3Xf//WreyTEFNRTMuOTkuNVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV";
+
+function getAnnounceEl(){
+  if(!announceAudio){ announceAudio = new Audio(); announceAudio.preload = "auto"; }
+  return announceAudio;
+}
+
+// Call synchronously inside a user gesture (the Play tap) to satisfy iOS autoplay.
+export function unlockAudio(){
+  const el = getAnnounceEl();
+  try{
+    el.muted = true;
+    el.src = SILENT_MP3;
+    const p = el.play();
+    const done = () => { try{ el.pause(); el.currentTime = 0; }catch(e){} el.muted = false; };
+    if(p && p.then) p.then(done).catch(() => { el.muted = false; });
+    else done();
+  }catch(e){ el.muted = false; }
+}
+
 export function stopAnnounce(){
   if(webSpeakTimer){ clearTimeout(webSpeakTimer); webSpeakTimer = null; }
-  if(announceAudio){ try{ announceAudio.pause(); }catch(e){} announceAudio = null; }
+  if(announceAudio){ try{ announceAudio.pause(); }catch(e){} }
 }
 
 function webSpeak(text){
@@ -77,11 +100,14 @@ function webSpeak(text){
 
 function playAnnounce(src, name){
   duckMusic(true);
-  announceAudio = new Audio(src);
-  announceAudio.volume = 1;
-  announceAudio.onended = () => duckMusic(false);
-  announceAudio.onerror = () => { duckMusic(false); webSpeak(name); };
-  announceAudio.play().catch(() => webSpeak(name));
+  const el = getAnnounceEl();
+  el.muted = false;
+  el.volume = 1;
+  el.onended = () => duckMusic(false);
+  el.onerror = () => { duckMusic(false); webSpeak(name); };
+  el.src = src;
+  try{ el.currentTime = 0; }catch(e){}
+  el.play().catch(() => webSpeak(name));
 }
 
 export function speak(name){
