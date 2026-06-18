@@ -1,12 +1,20 @@
 // Voice announcements and background music with ducking.
-//   - Library molecules → pre-rendered neural MP3 in audio/
-//   - Searched molecules, signed in → secured cloud TTS (Supabase Edge Function), cached
-//   - Otherwise → browser SpeechSynthesis fallback
+//   - Any molecule with a pre-rendered neural MP3 (listed in audio/manifest.json) → play it
+//   - Otherwise → browser SpeechSynthesis fallback, and the name is logged so its
+//     Ava voice can be pre-rendered and added to the library later.
+//
+// Why pre-render: Microsoft's free edge-tts (the "Ava" voice) refuses calls from
+// datacenter IPs and from web-page origins, so it can't run live from a server or
+// the browser — only from a local residential machine. So voices are baked ahead.
 
-import { libKey } from "./library.js";
 import { slugify } from "./util.js";
-import { sb } from "./supabase.js";
-import { isSignedIn } from "./auth.js";
+
+// Set of slugs that have a pre-rendered MP3 in audio/.
+const VOICE_MANIFEST = new Set(
+  await fetch(new URL("../audio/manifest.json", import.meta.url))
+    .then(r => r.ok ? r.json() : [])
+    .catch(() => [])
+);
 
 // ---- voice selection (browser fallback) ----
 let chosenVoice = null;
@@ -25,26 +33,19 @@ function loadVoices(){
 }
 if("speechSynthesis" in window){ loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; }
 
-// Pre-rendered neural MP3 exists only for local library specimens (Phase 1).
+// Pre-rendered neural MP3 path, if this molecule has one baked.
 export function audioFileFor(name){
-  const key = libKey(name);
-  return key ? ("audio/" + slugify(key) + ".mp3") : null;
+  const slug = slugify(name);
+  return VOICE_MANIFEST.has(slug) ? ("audio/" + slug + ".mp3") : null;
 }
 
-// Secured cloud TTS: a signed MP3 URL for any molecule. Only for signed-in
-// users (the Edge Function is auth-gated); returns null to fall back otherwise.
-// Results are cached in-memory for the session to avoid repeat round-trips.
-const ttsCache = new Map();
-async function ttsUrlFor(name){
-  if(!sb || !isSignedIn()) return null;
-  const key = name.toLowerCase();
-  if(ttsCache.has(key)) return ttsCache.get(key);
+// Record molecules that don't have a baked voice yet, so they can be added later.
+const PENDING_KEY = "mv_pending_voices";
+function logUnvoiced(name){
   try{
-    const { data, error } = await sb.functions.invoke("tts", { body: { name } });
-    if(error || !data || !data.url) return null;
-    ttsCache.set(key, data.url);
-    return data.url;
-  }catch(e){ return null; }
+    const set = new Set(JSON.parse(localStorage.getItem(PENDING_KEY) || "[]"));
+    if(!set.has(name)){ set.add(name); localStorage.setItem(PENDING_KEY, JSON.stringify([...set])); }
+  }catch(e){ /* ignore */ }
 }
 
 let announceAudio = null, webSpeakTimer = null;
@@ -81,10 +82,9 @@ export function speak(name){
   stopAnnounce();
   const file = audioFileFor(name);
   if(file){ playAnnounce(file, name); return; }
-  // Phase 3: try the secured cloud TTS before falling back to the browser voice.
-  ttsUrlFor(name).then(url => {
-    if(url){ playAnnounce(url, name); } else { webSpeak(name); }
-  }).catch(() => webSpeak(name));
+  // No baked voice for this molecule — note it for later, fall back to the device voice.
+  logUnvoiced(name);
+  webSpeak(name);
 }
 
 // ---- background music ----
