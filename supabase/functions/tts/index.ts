@@ -17,6 +17,7 @@ const BUCKET = "tts";
 const DAILY_CAP = 300;
 const TRUSTED_TOKEN = "6A5AA1D4EAFF4E9FB37E23D68491D6F4";
 const FMT = "audio-24khz-48kbitrate-mono-mp3";
+const GEC_VERSION = "1-131.0.2903.112";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -36,12 +37,26 @@ function ssml(text: string){
     `<voice name='${VOICE}'><prosody rate='${RATE}' pitch='${PITCH}'>${esc}</prosody></voice></speak>`;
 }
 
+// Microsoft requires a Sec-MS-GEC security token (SHA-256 of a 5-min-rounded
+// Windows filetime + the trusted token), passed as a query param.
+function gecTicks(): string {
+  const WIN_EPOCH = 11644473600n;
+  let s = BigInt(Math.floor(Date.now() / 1000)) + WIN_EPOCH;
+  s = s - (s % 300n);
+  return (s * 10000000n).toString();
+}
+async function secMsGec(): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(gecTicks() + TRUSTED_TOKEN));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0").toUpperCase()).join("");
+}
+
 // Direct Edge-TTS websocket protocol (native Deno WebSocket — no npm deps).
-function synthesize(text: string): Promise<Uint8Array> {
-  return new Promise((resolve, reject) => {
-    const ws = new WebSocket(
-      `wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=${TRUSTED_TOKEN}`
-    );
+async function synthesize(text: string): Promise<Uint8Array> {
+  const gec = await secMsGec();
+  const wssUrl = `wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1` +
+    `?TrustedClientToken=${TRUSTED_TOKEN}&Sec-MS-GEC=${gec}&Sec-MS-GEC-Version=${GEC_VERSION}`;
+  return await new Promise((resolve, reject) => {
+    const ws = new WebSocket(wssUrl);
     ws.binaryType = "arraybuffer";
     const chunks: Uint8Array[] = [];
     const timer = setTimeout(() => { try { ws.close(); } catch (_e) {} reject(new Error("tts timeout")); }, 20000);
