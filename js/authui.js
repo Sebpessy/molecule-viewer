@@ -2,7 +2,7 @@
 // one-time local→cloud import prompt. Hidden entirely when Supabase isn't set up.
 
 import { sb } from "./supabase.js";
-import { onAuth, currentUser, signInMagic, signInGoogle, signOut } from "./auth.js";
+import { onAuth, currentUser, signInMagic, signOut } from "./auth.js";
 import { localListCount, importLocalToCloud } from "./api.js";
 import { render as renderLists } from "./lists.js";
 import { esc } from "./util.js";
@@ -56,7 +56,6 @@ function signinForm(){
   return '<div class="signin">' +
     '<input id="siEmail" type="email" placeholder="you@email.com" autocomplete="email" spellcheck="false">' +
     '<button class="ctl" id="siMagic">Send magic link</button>' +
-    '<button class="ctl" id="siGoogle">Continue with Google</button>' +
     '<p class="si-msg" id="siMsg"></p>' +
   '</div>';
 }
@@ -71,10 +70,5 @@ function wireForm(){
       const { error } = await signInMagic(email);
       msg.textContent = error ? ("Error: " + error.message) : "Check your email for the sign-in link.";
     }catch(e){ msg.textContent = "Error: " + e.message; }
-  });
-  document.getElementById("siGoogle").addEventListener("click", async () => {
-    const msg = document.getElementById("siMsg");
-    try{ const { error } = await signInGoogle(); if(error) msg.textContent = "Error: " + error.message; }
-    catch(e){ msg.textContent = "Error: " + e.message; }
   });
 }
