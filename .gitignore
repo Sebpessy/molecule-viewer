@@ -1,0 +1,6 @@
+.DS_Store
+.claude/
+# legacy single-file build, superseded by index.html + js/ modules
+moleculeviewer.html
+# orphan duplicate of audio/tracks/molecules-1.mp3
+molecules 1.mp3

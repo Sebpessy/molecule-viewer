@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Molecular Specimen Viewer — Structure Index</title>
+<script src="https://3Dmol.org/build/3Dmol-min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<header>
+  <p class="kicker">Molecular Specimen Viewer</p>
+  <h1>Structure Index</h1>
+</header>
+<div class="wrap">
+  <div class="stage">
+    <div id="viewer"></div>
+    <div class="status" id="status"></div>
+    <button class="focus-btn" id="focusBtn" title="Immersive view">&#9974;</button>
+    <div class="overlay" id="overlay">
+      <button class="ov-btn" id="ovExit" title="Exit immersive view">&#10005;</button>
+      <button class="ov-btn" id="ovSpin" title="Toggle rotation">&#9210;</button>
+      <button class="ov-btn" id="ovCenter" title="Recenter">&#9678;</button>
+      <span class="ov-name" id="ovName"></span>
+    </div>
+  </div>
+  <aside class="panel">
+    <div class="account" id="account"></div>
+    <div class="search">
+      <input id="q" type="text" placeholder="Search any molecule…" autocomplete="off" spellcheck="false">
+      <div class="sugg" id="sugg"></div>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div id="info"></div>
+    <div class="controls">
+      <button class="ctl" id="spinBtn">&#9210;  Toggle rotation</button>
+      <button class="ctl" id="styleBtn">&#9881;  Cycle render style</button>
+      <button class="ctl" id="centerBtn">&#9678;  Recenter</button>
+    </div>
+    <div class="lists" id="lists">
+      <div class="lists-head">
+        <h2>My Lists</h2>
+        <button class="btn-mini" id="newListBtn">&#65291; New list</button>
+      </div>
+      <div id="listsBody"></div>
+    </div>
+  </aside>
+</div>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
