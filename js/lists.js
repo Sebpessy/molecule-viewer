@@ -4,6 +4,7 @@
 import * as api from "./api.js";
 import { playList, stopSession, plState, isPlaying } from "./session.js";
 import { getCurrentSpecimen } from "./viewer.js";
+import { audioFileFor } from "./voice.js";
 import { esc } from "./util.js";
 import { TRACKS, caps } from "./config.js";
 import { sb } from "./supabase.js";
@@ -127,14 +128,18 @@ function renderEditor(l){
     '<option value="' + i + '"' + ((s.track | 0) === i ? " selected" : "") + '>' + esc(t.name) + '</option>').join("");
 
   const items = l.molecules.length
-    ? l.molecules.map((m, i) =>
-        '<div class="ed-item" data-i="' + i + '">' +
+    ? l.molecules.map((m, i) => {
+        const pending = !audioFileFor(m.name)
+          ? '<span class="ed-pending" title="No voice recorded yet — it will be silent until the audio is produced (usually within a day).">&#9203; voice pending</span>'
+          : '';
+        return '<div class="ed-item" data-i="' + i + '">' +
           '<span class="ed-num">' + (i + 1) + '</span>' +
-          '<span class="ed-iname">' + esc(m.name) + '</span>' +
+          '<span class="ed-iname">' + esc(m.name) + pending + '</span>' +
           '<button class="ed-move" data-act="up" title="Move up">&#8593;</button>' +
           '<button class="ed-move" data-act="down" title="Move down">&#8595;</button>' +
           '<button class="ed-rm" data-act="rm" title="Remove">&#10005;</button>' +
-        '</div>').join("")
+        '</div>';
+      }).join("")
     : '<p class="ed-empty">Empty. Search a molecule, then “Add current specimen”.</p>';
 
   const playing = isPlaying(l.id);
