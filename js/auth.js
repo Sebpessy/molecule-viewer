@@ -45,4 +45,10 @@ export async function signInGoogle(){
   if(!sb) throw new Error("Supabase not configured");
   return sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: redirect() } });
 }
+// Verify the 6-digit email code (mobile-robust: no link/redirect needed).
+export async function verifyOtpCode(email, token){
+  if(!sb) throw new Error("Supabase not configured");
+  return sb.auth.verifyOtp({ email, token: String(token).trim(), type: "email" });
+}
+
 export async function signOut(){ if(sb) await sb.auth.signOut(); }

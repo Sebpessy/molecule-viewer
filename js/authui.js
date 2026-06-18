@@ -2,12 +2,14 @@
 // one-time local→cloud import prompt. Hidden entirely when Supabase isn't set up.
 
 import { sb } from "./supabase.js";
-import { onAuth, currentUser, signInMagic, signOut } from "./auth.js";
+import { onAuth, currentUser, signInMagic, verifyOtpCode, signOut } from "./auth.js";
 import { localListCount, importLocalToCloud } from "./api.js";
 import { render as renderLists } from "./lists.js";
 import { esc } from "./util.js";
 
 let formOpen = false;
+let codeSent = false;      // step 2: waiting for the 6-digit code
+let pendingEmail = "";
 
 export function initAuthUI(){
   const acct = document.getElementById("account");
@@ -53,22 +55,47 @@ function renderAccount(){
 }
 
 function signinForm(){
+  if(codeSent){
+    return '<div class="signin">' +
+      '<p class="acct-muted">Code sent to ' + esc(pendingEmail) + '. Enter it below (or use the link in the email).</p>' +
+      '<input id="siCode" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code">' +
+      '<button class="ctl primary" id="siVerify">Verify &amp; sign in</button>' +
+      '<button class="ctl" id="siReset">Use a different email</button>' +
+      '<p class="si-msg" id="siMsg"></p>' +
+    '</div>';
+  }
   return '<div class="signin">' +
     '<input id="siEmail" type="email" placeholder="you@email.com" autocomplete="email" spellcheck="false">' +
-    '<button class="ctl" id="siMagic">Send magic link</button>' +
+    '<button class="ctl primary" id="siSend">Email me a sign-in code</button>' +
     '<p class="si-msg" id="siMsg"></p>' +
   '</div>';
 }
 
 function wireForm(){
-  document.getElementById("siMagic").addEventListener("click", async () => {
+  if(codeSent){
+    document.getElementById("siReset").addEventListener("click", () => { codeSent = false; pendingEmail = ""; renderAccount(); });
+    document.getElementById("siVerify").addEventListener("click", async () => {
+      const code = document.getElementById("siCode").value.trim();
+      const msg = document.getElementById("siMsg");
+      if(!code){ msg.textContent = "Enter the code from your email."; return; }
+      msg.textContent = "Verifying…";
+      try{
+        const { error } = await verifyOtpCode(pendingEmail, code);
+        if(error){ msg.textContent = "Error: " + error.message; }
+        else { codeSent = false; formOpen = false; /* onAuthStateChange re-renders */ }
+      }catch(e){ msg.textContent = "Error: " + e.message; }
+    });
+    return;
+  }
+  document.getElementById("siSend").addEventListener("click", async () => {
     const email = document.getElementById("siEmail").value.trim();
     const msg = document.getElementById("siMsg");
     if(!email){ msg.textContent = "Enter your email."; return; }
     msg.textContent = "Sending…";
     try{
       const { error } = await signInMagic(email);
-      msg.textContent = error ? ("Error: " + error.message) : "Check your email for the sign-in link.";
+      if(error){ msg.textContent = "Error: " + error.message; }
+      else { pendingEmail = email; codeSent = true; renderAccount(); }
     }catch(e){ msg.textContent = "Error: " + e.message; }
   });
 }
