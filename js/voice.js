@@ -8,6 +8,8 @@
 // the browser — only from a local residential machine. So voices are baked ahead.
 
 import { slugify } from "./util.js";
+import { sb } from "./supabase.js";
+import { isSignedIn } from "./auth.js";
 
 // Set of slugs that have a pre-rendered MP3 in audio/. Fetched fresh each load
 // (no-store) so newly-added voices appear without needing a hard refresh.
@@ -41,12 +43,16 @@ export function audioFileFor(name){
 }
 
 // Record molecules that don't have a baked voice yet, so they can be added later.
+// Locally (always) + to the cloud queue (when signed in) so their Ava voice can be produced.
 const PENDING_KEY = "mv_pending_voices";
 function logUnvoiced(name){
   try{
     const set = new Set(JSON.parse(localStorage.getItem(PENDING_KEY) || "[]"));
     if(!set.has(name)){ set.add(name); localStorage.setItem(PENDING_KEY, JSON.stringify([...set])); }
   }catch(e){ /* ignore */ }
+  if(sb && isSignedIn()){
+    try{ sb.rpc("request_voice", { p_name: name }); }catch(e){ /* fire-and-forget */ }
+  }
 }
 
 let announceAudio = null, webSpeakTimer = null;
