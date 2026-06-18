@@ -1,11 +1,12 @@
-// Voice announcements (pre-rendered neural MP3 for library molecules, browser
-// SpeechSynthesis fallback for the rest) and background music with ducking.
-//
-// Phase 3 will add a secured cloud-TTS path here so searched molecules also get
-// the Ava neural voice (see ttsUrlFor stub below).
+// Voice announcements and background music with ducking.
+//   - Library molecules → pre-rendered neural MP3 in audio/
+//   - Searched molecules, signed in → secured cloud TTS (Supabase Edge Function), cached
+//   - Otherwise → browser SpeechSynthesis fallback
 
 import { libKey } from "./library.js";
 import { slugify } from "./util.js";
+import { sb } from "./supabase.js";
+import { isSignedIn } from "./auth.js";
 
 // ---- voice selection (browser fallback) ----
 let chosenVoice = null;
@@ -30,9 +31,21 @@ export function audioFileFor(name){
   return key ? ("audio/" + slugify(key) + ".mp3") : null;
 }
 
-// Phase 3 hook: return a signed cloud-TTS URL for any molecule (auth-gated).
-// Stubbed to null for now so non-library molecules fall back to the browser voice.
-async function ttsUrlFor(/* name */){ return null; }
+// Secured cloud TTS: a signed MP3 URL for any molecule. Only for signed-in
+// users (the Edge Function is auth-gated); returns null to fall back otherwise.
+// Results are cached in-memory for the session to avoid repeat round-trips.
+const ttsCache = new Map();
+async function ttsUrlFor(name){
+  if(!sb || !isSignedIn()) return null;
+  const key = name.toLowerCase();
+  if(ttsCache.has(key)) return ttsCache.get(key);
+  try{
+    const { data, error } = await sb.functions.invoke("tts", { body: { name } });
+    if(error || !data || !data.url) return null;
+    ttsCache.set(key, data.url);
+    return data.url;
+  }catch(e){ return null; }
+}
 
 let announceAudio = null, webSpeakTimer = null;
 export function stopAnnounce(){
