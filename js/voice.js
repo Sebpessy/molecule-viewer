@@ -9,9 +9,10 @@
 
 import { slugify } from "./util.js";
 
-// Set of slugs that have a pre-rendered MP3 in audio/.
+// Set of slugs that have a pre-rendered MP3 in audio/. Fetched fresh each load
+// (no-store) so newly-added voices appear without needing a hard refresh.
 const VOICE_MANIFEST = new Set(
-  await fetch(new URL("../audio/manifest.json", import.meta.url))
+  await fetch(new URL("../audio/manifest.json", import.meta.url), { cache: "no-store" })
     .then(r => r.ok ? r.json() : [])
     .catch(() => [])
 );
