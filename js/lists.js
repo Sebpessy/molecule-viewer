@@ -6,13 +6,19 @@ import { playList, stopSession, plState, isPlaying } from "./session.js";
 import { getCurrentSpecimen } from "./viewer.js";
 import { esc } from "./util.js";
 import { TRACKS, caps } from "./config.js";
+import { sb } from "./supabase.js";
+import { isSignedIn } from "./auth.js";
 
 let editingId = null;
 
 const body = () => document.getElementById("listsBody");
 
+// Lists require an account: locked until the user is signed in.
+function locked(){ return !!sb && !isSignedIn(); }
+
 export async function initLists(){
   document.getElementById("newListBtn").addEventListener("click", async () => {
+    if(locked()){ promptSignIn(); return; }
     const all = await api.listLists();
     if(all.length >= caps().maxLists){ flashNewBtn("List limit reached"); return; }
     const l = await api.createList("List " + (all.length + 1));
@@ -20,6 +26,11 @@ export async function initLists(){
     render();
   });
   render();
+}
+
+function promptSignIn(){
+  const t = document.getElementById("signInToggle");
+  if(t) t.click();           // open the account sign-in form
 }
 
 function flashNewBtn(msg){
@@ -30,6 +41,18 @@ function flashNewBtn(msg){
 }
 
 export async function render(){
+  const newBtn = document.getElementById("newListBtn");
+  if(locked()){
+    editingId = null;
+    if(newBtn) newBtn.style.display = "none";
+    body().innerHTML =
+      '<p class="lists-empty">&#128274; Sign in to create and play your molecule lists.</p>' +
+      '<button class="ctl primary" id="listsSignIn">Sign in</button>';
+    const b = document.getElementById("listsSignIn");
+    if(b) b.addEventListener("click", promptSignIn);
+    return;
+  }
+  if(newBtn) newBtn.style.display = "";
   if(editingId){
     const l = await api.getList(editingId);
     if(!l){ editingId = null; }
